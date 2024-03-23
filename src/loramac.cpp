@@ -5,7 +5,6 @@
 #include <CayenneLPP.h>
 
 #include "oled.h"
-#include "IMU.h"
 #include "gps.h"
 #include "Bat.h"
 
@@ -51,20 +50,6 @@ void printVariables()
         lpp.addGenericSensor(5, Value);
     }
 
-    if (imu->dataReady() && is_inited_imu)
-    {
-        imu->getAGMT();
-
-        float Acc_x = imu->accX();
-        float Acc_y = imu->accY();
-        float Acc_z = imu->accZ();
-        lpp.addAccelerometer(4, Acc_x, Acc_y, Acc_z);
-
-        float Gyr_x = imu->gyrX();
-        float Gyr_y = imu->gyrY();
-        float Gyr_z = imu->gyrZ();
-        lpp.addGyrometer(7, Gyr_x, Gyr_y, Gyr_z);
-    }
     float batt_lvl = float((Volt * 3.3 * 2) / 4096);
     Serial.printf("BatteryVol : %f\n", batt_lvl);
     lpp.addAnalogInput(8, batt_lvl);

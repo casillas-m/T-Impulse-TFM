@@ -4,7 +4,6 @@
 #include "config.h"
 #include "oled.h"
 #include "gps.h"
-#include "IMU.h"
 #include "Bat.h"
 
 void LoraWanInit(void)
@@ -35,7 +34,6 @@ void BoardInit(void)
 
     gps_init();
     oled_init();
-    imu_init();
     bat_init();
     pinMode(BAT_VOLT_PIN, INPUT_ANALOG);
 
