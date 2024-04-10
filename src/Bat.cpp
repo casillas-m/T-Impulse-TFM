@@ -47,6 +47,12 @@ void bat_init(void)
     HAL_ADC_Start(&hadc);
 }
 
+void bat_sleep(void)
+{
+    HAL_ADC_Stop(&hadc);
+    HAL_ADC_DeInit(&hadc);
+}
+
 void bat_loop(void)
 {
     static uint32_t vot;

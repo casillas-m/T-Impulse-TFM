@@ -5,44 +5,8 @@
 #include "oled.h"
 #include "gps.h"
 #include "Bat.h"
-
-void LoraWanInit(void)
-{
-    SPI.setMISO(LORA_MISO);
-    SPI.setMOSI(LORA_MOSI);
-    SPI.setSCLK(LORA_SCK);
-    SPI.begin();
-
-    pinMode(RADIO_ANT_SWITCH_RXTX, OUTPUT);
-    pinMode(GPS_EN, OUTPUT);
-
-    digitalWrite(RADIO_ANT_SWITCH_RXTX, HIGH);
-    digitalWrite(GPS_EN, HIGH);
-}
-
-void BoardInit(void)
-{
-    pinMode(PWR_1_8V_PIN, OUTPUT);
-    digitalWrite(PWR_1_8V_PIN, HIGH);
-    pinMode(PWR_GPS_PIN, OUTPUT);
-    digitalWrite(PWR_GPS_PIN, HIGH);
-    Serial.begin(115200);
-
-    Wire.setSCL(IICSCL);
-    Wire.setSDA(IICSDA);
-    Wire.begin();
-
-    gps_init();
-    oled_init();
-    bat_init();
-    pinMode(BAT_VOLT_PIN, INPUT_ANALOG);
-
-    LoraWanInit();
-
-    pinMode(TTP223_VDD_PIN, OUTPUT);
-    pinMode(TOUCH_PAD_PIN, INPUT);
-    digitalWrite(TTP223_VDD_PIN, HIGH);
-}
+#include "energy_mgmt.h"
+#include "touch.h"
 
 void setup()
 {
@@ -54,6 +18,11 @@ void setup()
 
 void loop()
 {
+    int touch_press_time = TouchCallback();
+    if (touch_press_time > 3000) // Long press for 3 seconds to enter sleep mode
+    {
+        Board_Sleep();
+    }
     loopLMIC();
     bat_loop();
     gps_loop();

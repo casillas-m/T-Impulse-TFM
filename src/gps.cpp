@@ -57,6 +57,14 @@ void gps_init(void)
     GPS_WaitAck("@GSR");
 }
 
+void gps_sleep(void) {
+  gpsPort.flush();
+  GPS_WaitAck("@GSTP");
+  GPS_WaitAck("@SLP", "2");
+  Serial.println(F("GPS SLEEP!!"));
+  gpsPort.end();
+}
+
 void gps_loop(void)
 {
     while (gpsPort.available() > 0)

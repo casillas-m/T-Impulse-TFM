@@ -5,6 +5,7 @@
 
 void gps_init(void);
 void gps_loop(void);
+void gps_sleep(void);
 extern TinyGPSPlus *gps;
 
 #endif /* __GPS_H__ */

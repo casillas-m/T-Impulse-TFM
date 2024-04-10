@@ -8,6 +8,7 @@
 
 void bat_init(void);
 void bat_loop(void);
+void bat_sleep(void);
 extern uint32_t Volt;
 
 #endif /* __BAT_H__ */
