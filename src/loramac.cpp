@@ -46,8 +46,8 @@ void printVariables()
         double gps_alt = gps->altitude.meters();
         lpp.addGPS(3, (float)gps_lat, (float)gps_lng, (float)gps_alt);
 
-        uint32_t Value = gps->satellites.value();
-        lpp.addGenericSensor(5, Value);
+        //uint32_t Value = gps->satellites.value();
+        //lpp.addGenericSensor(5, Value);
     }
 
     float batt_lvl = float((Volt * 3.3 * 2) / 4096);
