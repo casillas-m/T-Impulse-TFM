@@ -32,7 +32,19 @@ static osjob_t sendjob;
 static int spreadFactor = DR_SF7;
 static int joinStatus = EV_JOINING;
 static const unsigned TX_INTERVAL = 15;
+static const unsigned TX_INTERVAL_FAST = 7;
+static bool TX_FAST_FLAG = false;
 static String lora_msg = "";
+
+void setTXFast(bool mode)
+{
+    TX_FAST_FLAG = mode;
+}
+
+bool getTXFast()
+{
+    return TX_FAST_FLAG;
+}
 
 /* Data to be uploaded to cayenne */
 void printVariables()
@@ -46,8 +58,8 @@ void printVariables()
         double gps_alt = gps->altitude.meters();
         lpp.addGPS(3, (float)gps_lat, (float)gps_lng, (float)gps_alt);
 
-        //uint32_t Value = gps->satellites.value();
-        //lpp.addGenericSensor(5, Value);
+        // uint32_t Value = gps->satellites.value();
+        // lpp.addGenericSensor(5, Value);
     }
 
     float batt_lvl = float((Volt * 3.3 * 2) / 4096);
@@ -93,7 +105,7 @@ void do_send(osjob_t *j)
         // Prepare upstream data transmission at the next possible time.
         // LMIC_setTxData2(1, mydata, sizeof(mydata) - 1, 0);
 
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_FAST_FLAG ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
 
         if (u8g2)
         {
@@ -133,7 +145,7 @@ void onEvent(ev_t ev)
             Serial.println(F(" bytes of payload"));
         }
         // Schedule next transmission
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_FAST_FLAG ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
         break;
     case EV_JOINING:
         Serial.println(F("EV_JOINING: -> Joining..."));

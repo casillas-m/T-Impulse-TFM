@@ -23,6 +23,34 @@ void loop()
     {
         Board_Sleep();
     }
+    else if (touch_press_time > 200)
+    {
+        //Toggle TX fast mode
+        bool tx_fast_flag = getTXFast();
+        if (tx_fast_flag)
+        {
+            setTXFast(false);
+            if (u8g2)
+            {
+                u8g2->clearBuffer();
+                u8g2->setFont(u8g2_font_IPAandRUSLCD_tr);
+                u8g2->drawStr(0, 12, "TX Fast OFF");
+                u8g2->sendBuffer();
+            }
+        }
+        else
+        {
+            setTXFast(true);
+            if (u8g2)
+            {
+                u8g2->clearBuffer();
+                u8g2->setFont(u8g2_font_IPAandRUSLCD_tr);
+                u8g2->drawStr(0, 12, "TX Fast ON");
+                u8g2->sendBuffer();
+            }
+        }
+    }
+
     loopLMIC();
     bat_loop();
     gps_loop();
