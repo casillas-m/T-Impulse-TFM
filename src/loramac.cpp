@@ -32,9 +32,11 @@ static osjob_t sendjob;
 static int spreadFactor = DR_SF7;
 static int joinStatus = EV_JOINING;
 static const unsigned TX_INTERVAL = 15;
-static const unsigned TX_INTERVAL_FAST = 7;
+static const unsigned TX_INTERVAL_FAST = 5;
+static const unsigned JOIN_RETRY_INTERVAL = 15;
 static bool TX_FAST_FLAG = false;
 static String lora_msg = "";
+void setupLMIC(void);
 
 void setTXFast(bool mode)
 {
@@ -57,9 +59,6 @@ void printVariables()
         double gps_lng = gps->location.lng();
         double gps_alt = gps->altitude.meters();
         lpp.addGPS(3, (float)gps_lat, (float)gps_lng, (float)gps_alt);
-
-        // uint32_t Value = gps->satellites.value();
-        // lpp.addGenericSensor(5, Value);
     }
 
     float batt_lvl = float((Volt * 3.3 * 2) / 4096);
@@ -101,18 +100,19 @@ void do_send(osjob_t *j)
         printVariables();
         LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
 
-        // static uint8_t mydata[] = "Hello, world!";
-        // Prepare upstream data transmission at the next possible time.
-        // LMIC_setTxData2(1, mydata, sizeof(mydata) - 1, 0);
-
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_FAST_FLAG ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
 
         if (u8g2)
         {
             char buf[256];
             u8g2->clearBuffer();
-            snprintf(buf, sizeof(buf), "[%lu]data sending!", millis() / 1000);
-            u8g2->drawStr(0, 12, buf);
+            float batt_lvl = float((Volt * 3.3 * 2) / 4096);
+            snprintf(buf, sizeof(buf), "Batt: %.2f", batt_lvl);
+            u8g2->drawStr(0, 7, buf);
+            snprintf(buf, sizeof(buf), "#GPS: %d", gps->satellites.value());
+            u8g2->drawStr(0, 17, buf);
+            snprintf(buf, sizeof(buf), "Sending");
+            u8g2->drawStr(0, 27, buf);
             u8g2->sendBuffer();
         }
     }
@@ -126,7 +126,17 @@ void onEvent(ev_t ev)
     {
     case EV_TXCOMPLETE:
         Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
-
+        if (u8g2)
+        {
+            char buf[256];
+            u8g2->setDrawColor(2);
+            snprintf(buf, sizeof(buf), "Sending");
+            u8g2->drawStr(0, 27, buf);
+            u8g2->setDrawColor(1);
+            snprintf(buf, sizeof(buf), "Sended");
+            u8g2->drawStr(0, 27, buf);
+            u8g2->sendBuffer();
+        }
         if (LMIC.txrxFlags & TXRX_ACK)
         {
             Serial.println(F("Received ack"));
@@ -155,7 +165,8 @@ void onEvent(ev_t ev)
         if (u8g2)
         {
             u8g2->clearBuffer();
-            u8g2->drawStr(0, 12, "OTAA joining....");
+            u8g2->setFont(u8g2_font_IPAandRUSLCD_tr);
+            u8g2->drawStr(0, 20, "JOINING");
             u8g2->sendBuffer();
         }
 
@@ -189,6 +200,7 @@ void onEvent(ev_t ev)
         // during join, but not supported by TTN at this time).
         LMIC_setLinkCheckMode(0);
 
+        do_send(&sendjob);
         break;
     case EV_RXCOMPLETE:
         // data received in ping slot
@@ -200,8 +212,16 @@ void onEvent(ev_t ev)
     case EV_LINK_ALIVE:
         Serial.println(F("EV_LINK_ALIVE"));
         break;
+    case EV_TXSTART:
+        Serial.println(F("EV_TXSTART"));
+        break;
+    case EV_JOIN_TXCOMPLETE:
+        Serial.println(F("EV_JOIN_TXCOMPLETE"));
+        Serial.println(F("Restarting JOIN process"));
+        setupLMIC();
+        break;
     default:
-        Serial.println(F("Unknown event"));
+        Serial.printf("Unknown event (%d)\n",ev);
         break;
     }
 }
@@ -249,8 +269,6 @@ void setupLMIC(void)
 
     // Start job
     LMIC_startJoining();
-
-    do_send(&sendjob); // Will fire up also the join
 }
 
 void loopLMIC(void)
