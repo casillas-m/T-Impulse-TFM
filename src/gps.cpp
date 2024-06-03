@@ -3,6 +3,7 @@
 
 TinyGPSPlus *gps = nullptr;
 HardwareSerial gpsPort(GPS_RX, GPS_TX);
+bool GPS_SLEEP_FLAG = true;
 
 void GPS_WaitAck(String cmd, String arg = "")
 {
@@ -36,43 +37,53 @@ void GPS_WaitAck(String cmd, String arg = "")
 }
 void gps_init(void)
 {
-    gps = new TinyGPSPlus();
-    gpsPort.begin(GPS_BAUD_RATE);
-    pinMode(GPS_EN, OUTPUT);
-    digitalWrite(GPS_EN, HIGH);
-    pinMode(GPS_RST, GPIO_PULLUP);
-    // Set  Reset Pin as 0
-    digitalWrite(GPS_RST, LOW);
-    // Scope shows 1.12s (Low Period)
-    delay(200);
-    // Set  Reset Pin as 1
-    digitalWrite(GPS_RST, HIGH);
-    delay(500);
+    if (GPS_SLEEP_FLAG){
+        gps = new TinyGPSPlus();
+        gpsPort.begin(GPS_BAUD_RATE);
+        pinMode(GPS_EN, OUTPUT);
+        digitalWrite(GPS_EN, HIGH);
+        pinMode(GPS_RST, GPIO_PULLUP);
+        // Set  Reset Pin as 0
+        digitalWrite(GPS_RST, LOW);
+        // Scope shows 1.12s (Low Period)
+        delay(200);
+        // Set  Reset Pin as 1
+        digitalWrite(GPS_RST, HIGH);
+        delay(500);
 
-    GPS_WaitAck("@GSTP");
-    GPS_WaitAck("@BSSL", "0x2EF");
-    GPS_WaitAck("@GSOP", "1 1000 0");
-    GPS_WaitAck("@GNS", "0x03");
-    //! Start GPS connamd
-    GPS_WaitAck("@GSR");
+        GPS_WaitAck("@GSTP"); //Positioning stop
+        GPS_WaitAck("@BSSL", "0x2EF"); //Output sentence select, all outputs
+        GPS_WaitAck("@GSOP", "1 1000 0"); //Operation mode normal, position cycle, sleep time
+        GPS_WaitAck("@GNS", "0x03"); // Use the GPS and GLONASS systems.
+        //! Start GPS connamd
+        GPS_WaitAck("@GSR");
+        delay(200);
+        GPS_SLEEP_FLAG = false;
+    }
 }
 
 void gps_sleep(void) {
-  gpsPort.flush();
-  GPS_WaitAck("@GSTP");
-  GPS_WaitAck("@SLP", "2");
-  Serial.println(F("GPS SLEEP!!"));
-  gpsPort.end();
+    if (!GPS_SLEEP_FLAG){
+        gpsPort.flush();
+        GPS_WaitAck("@GSTP"); //Positioning stop
+        GPS_WaitAck("@SLP", "2");//Sleep mode 2
+        Serial.println(F("GPS SLEEP!!"));
+        gpsPort.end();
+        GPS_SLEEP_FLAG = true;
+    }
 }
 
 void gps_loop(void)
 {
-    while (gpsPort.available() > 0)
+    if (!GPS_SLEEP_FLAG)
     {
-        gps->encode(gpsPort.read());
-    }
-    if (gps->charsProcessed() < 10)
-    {
-        Serial.println(F("WARNING: No GPS data.  Check wiring."));
+        while (gpsPort.available() > 0)
+        {
+            gps->encode(gpsPort.read());
+        }
+        /*if (gps->charsProcessed() < 10)
+        {
+            Serial.println(F("WARNING: No GPS data.  Check wiring."));
+        }*/
     }
 }

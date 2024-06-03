@@ -35,7 +35,8 @@ static const unsigned TX_INTERVAL = 15;
 static const unsigned TX_INTERVAL_FAST = 5;
 static const unsigned JOIN_RETRY_INTERVAL = 15;
 static bool TX_FAST_FLAG = false;
-static String lora_msg = "";
+static bool DEV_INTERIOR = false;
+//static String lora_msg = "";
 void setupLMIC(void);
 
 void setTXFast(bool mode)
@@ -48,18 +49,26 @@ bool getTXFast()
     return TX_FAST_FLAG;
 }
 
+bool getDEV_INTERIOR()
+{
+    return DEV_INTERIOR;
+}
+
 /* Data to be uploaded to cayenne */
 void printVariables()
 {
     lpp.reset();
 
-    if (gps->location.isUpdated() && gps->altitude.isUpdated() && gps->satellites.isUpdated())
+    if (gps!=nullptr && gps->location.isUpdated() && gps->altitude.isUpdated() && gps->satellites.isUpdated())
     {
         double gps_lat = gps->location.lat();
         double gps_lng = gps->location.lng();
         double gps_alt = gps->altitude.meters();
         lpp.addGPS(3, (float)gps_lat, (float)gps_lng, (float)gps_alt);
     }
+
+    if (DEV_INTERIOR) lpp.addDigitalInput(4, 1); //Interior
+    else lpp.addDigitalInput(4, 0); //Exterior
 
     float batt_lvl = float((Volt * 3.3 * 2) / 4096);
     Serial.printf("BatteryVol : %f\n", batt_lvl);
@@ -98,6 +107,7 @@ void do_send(osjob_t *j)
         Serial.println(F("OP_TXRXPEND,sending ..."));
 
         printVariables();
+        Serial.printf("Channel next TX: %d\n",LMIC.txChnl);
         LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
 
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
@@ -109,7 +119,14 @@ void do_send(osjob_t *j)
             float batt_lvl = float((Volt * 3.3 * 2) / 4096);
             snprintf(buf, sizeof(buf), "Batt: %.2f", batt_lvl);
             u8g2->drawStr(0, 7, buf);
-            snprintf(buf, sizeof(buf), "#GPS: %d", gps->satellites.value());
+            if (gps!=nullptr)
+            {
+                snprintf(buf, sizeof(buf), "#GPS: %d", gps->satellites.value());
+            }
+            else
+            {
+                snprintf(buf, sizeof(buf), "#GPS: N/A");
+            }
             u8g2->drawStr(0, 17, buf);
             snprintf(buf, sizeof(buf), "Sending");
             u8g2->drawStr(0, 27, buf);
@@ -120,8 +137,8 @@ void do_send(osjob_t *j)
 
 void onEvent(ev_t ev)
 {
-    Serial.print(os_getTime());
-    Serial.print(": ");
+    //Serial.print(os_getTime());
+    //Serial.print(": ");
     switch (ev)
     {
     case EV_TXCOMPLETE:
@@ -140,26 +157,45 @@ void onEvent(ev_t ev)
         if (LMIC.txrxFlags & TXRX_ACK)
         {
             Serial.println(F("Received ack"));
-            lora_msg = "Received ACK.";
+            //lora_msg = "Received ACK.";
         }
 
-        lora_msg = "rssi:" + String(LMIC.rssi) + " snr: " + String(LMIC.snr);
+        //lora_msg = "rssi:" + String(LMIC.rssi) + " snr: " + String(LMIC.snr);
 
         if (LMIC.dataLen)
         {
             // data received in rx slot after tx
-            Serial.print(F("Data Received: "));
-            // Serial.write(LMIC.frame + LMIC.dataBeg, LMIC.dataLen);
-            // Serial.println();
-            Serial.println(LMIC.dataLen);
+            //Serial.print(F("Data Received: "));
+            int port = LMIC.dataBeg - 1;
+            Serial.printf("Puerto: %d\n", port);
+            Serial.write(LMIC.frame + LMIC.dataBeg, LMIC.dataLen);
+            Serial.println();
+            Serial.print(LMIC.dataLen);
             Serial.println(F(" bytes of payload"));
+            if (*(LMIC.frame + LMIC.dataBeg) == 'I')
+            {
+                Serial.println("Interior");
+                DEV_INTERIOR = true;
+                gps_sleep();
+            }
+            else if (*(LMIC.frame + LMIC.dataBeg) == 'E')
+            {
+                Serial.println("Exterior");
+                DEV_INTERIOR = false;
+                gps_init();
+            }
+            else
+            {
+                Serial.println("RX_PAYLOAD_ERR");
+            }
+            
         }
         // Schedule next transmission
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_FAST_FLAG ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
         break;
     case EV_JOINING:
         Serial.println(F("EV_JOINING: -> Joining..."));
-        lora_msg = "OTAA joining....";
+        //lora_msg = "OTAA joining....";
         joinStatus = EV_JOINING;
 
         if (u8g2)
@@ -173,7 +209,7 @@ void onEvent(ev_t ev)
         break;
     case EV_JOIN_FAILED:
         Serial.println(F("EV_JOIN_FAILED: -> Joining failed"));
-        lora_msg = "OTAA Joining failed";
+        //lora_msg = "OTAA Joining failed";
 
         if (u8g2)
         {
@@ -185,7 +221,7 @@ void onEvent(ev_t ev)
         break;
     case EV_JOINED:
         Serial.println(F("EV_JOINED"));
-        lora_msg = "Joined!";
+        //lora_msg = "Joined!";
         joinStatus = EV_JOINED;
 
         if (u8g2)

@@ -34,7 +34,7 @@ void BoardInit(void)
     Wire.setSDA(IICSDA);
     Wire.begin();
 
-    gps_init();
+    if (!getDEV_INTERIOR()) gps_init(); //Init only if Dev not in interiors
     oled_init();
     bat_init();
     pinMode(BAT_VOLT_PIN, INPUT_ANALOG);
