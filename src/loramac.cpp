@@ -34,24 +34,28 @@ static int joinStatus = EV_JOINING;
 static const unsigned TX_INTERVAL = 15;
 static const unsigned TX_INTERVAL_FAST = 5;
 static const unsigned JOIN_RETRY_INTERVAL = 15;
-static bool TX_FAST_FLAG = false;
-static bool DEV_INTERIOR = false;
+static bool tx_fast_flag = false;
+static bool dev_interior = false;
+static const int TX_CHANNEL_QTY = 4;
+static int latest_tx_channels[4] = {-1,-1,-1,-1};
+static int tx_channel_pos = 0;
+
 //static String lora_msg = "";
 void setupLMIC(void);
 
 void setTXFast(bool mode)
 {
-    TX_FAST_FLAG = mode;
+    tx_fast_flag = mode;
 }
 
 bool getTXFast()
 {
-    return TX_FAST_FLAG;
+    return tx_fast_flag;
 }
 
 bool getDEV_INTERIOR()
 {
-    return DEV_INTERIOR;
+    return dev_interior;
 }
 
 /* Data to be uploaded to cayenne */
@@ -67,8 +71,28 @@ void printVariables()
         lpp.addGPS(3, (float)gps_lat, (float)gps_lng, (float)gps_alt);
     }
 
-    if (DEV_INTERIOR) lpp.addDigitalInput(4, 1); //Interior
+    if (dev_interior) lpp.addDigitalInput(4, 1); //Interior
     else lpp.addDigitalInput(4, 0); //Exterior
+
+    //Write channels used in the last 4 tx
+    //Bits position represent the channel, B0->Ch0... 1s means channel used
+    Serial.printf("Channel next TX: %d\n",LMIC.txChnl);
+    latest_tx_channels[tx_channel_pos] = LMIC.txChnl; //Save tx ch
+    tx_channel_pos = (tx_channel_pos + 1)%TX_CHANNEL_QTY;
+    int tx_channels_used = 0;
+    Serial.printf("latest_tx_channels = ");
+    for (int i = 0; i < TX_CHANNEL_QTY; i++)
+    {
+        Serial.printf("%d,",latest_tx_channels[i]);
+        //At begining array is filled with -1. If to ignore them.
+        if (latest_tx_channels[i] > -1)
+        {
+            tx_channels_used |= 1<<latest_tx_channels[i];
+        }
+    }
+    Serial.printf("\n");
+    lpp.addDigitalInput(5, tx_channels_used);
+    Serial.printf("tx_channels_used: %d\n", tx_channels_used);
 
     float batt_lvl = float((Volt * 3.3 * 2) / 4096);
     Serial.printf("BatteryVol : %f\n", batt_lvl);
@@ -107,7 +131,6 @@ void do_send(osjob_t *j)
         Serial.println(F("OP_TXRXPEND,sending ..."));
 
         printVariables();
-        Serial.printf("Channel next TX: %d\n",LMIC.txChnl);
         LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
 
         os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
@@ -175,13 +198,13 @@ void onEvent(ev_t ev)
             if (*(LMIC.frame + LMIC.dataBeg) == 'I')
             {
                 Serial.println("Interior");
-                DEV_INTERIOR = true;
+                dev_interior = true;
                 gps_sleep();
             }
             else if (*(LMIC.frame + LMIC.dataBeg) == 'E')
             {
                 Serial.println("Exterior");
-                DEV_INTERIOR = false;
+                dev_interior = false;
                 gps_init();
             }
             else
@@ -191,7 +214,7 @@ void onEvent(ev_t ev)
             
         }
         // Schedule next transmission
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_FAST_FLAG ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(tx_fast_flag ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
         break;
     case EV_JOINING:
         Serial.println(F("EV_JOINING: -> Joining..."));
