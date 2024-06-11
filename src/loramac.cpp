@@ -3,6 +3,7 @@
 #include <hal/hal.h>
 #include "config.h"
 #include <CayenneLPP.h>
+#include "STM32LowPower.h"
 
 #include "oled.h"
 #include "gps.h"
@@ -33,6 +34,7 @@ static int spreadFactor = DR_SF7;
 static int joinStatus = EV_JOINING;
 static const unsigned TX_INTERVAL = 15;
 static const unsigned TX_INTERVAL_FAST = 5;
+static const unsigned TX_RETRY_INTERVAL = 15;
 static const unsigned JOIN_RETRY_INTERVAL = 15;
 static bool tx_fast_flag = false;
 static bool dev_interior = false;
@@ -120,7 +122,7 @@ void do_send(osjob_t *j)
     {
         Serial.println(F("Not joined yet"));
         // Check if there is not a current TX/RX job running
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_RETRY_INTERVAL), do_send);
     }
     else if (LMIC.opmode & OP_TXRXPEND)
     {
@@ -129,11 +131,12 @@ void do_send(osjob_t *j)
     else
     {
         Serial.println(F("OP_TXRXPEND,sending ..."));
+        u8g2->sleepOff();
 
         printVariables();
         LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
 
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_INTERVAL), do_send);
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(TX_RETRY_INTERVAL), do_send);
 
         if (u8g2)
         {
@@ -144,7 +147,14 @@ void do_send(osjob_t *j)
             u8g2->drawStr(0, 7, buf);
             if (gps!=nullptr)
             {
-                snprintf(buf, sizeof(buf), "#GPS: %d", gps->satellites.value());
+                if (!dev_interior)
+                {
+                    snprintf(buf, sizeof(buf), "#GPS: %d", gps->satellites.value());
+                }
+                else
+                {
+                    snprintf(buf, sizeof(buf), "#GPS: Sleep");
+                }
             }
             else
             {
@@ -160,6 +170,7 @@ void do_send(osjob_t *j)
 
 void onEvent(ev_t ev)
 {
+    uint32_t sleep_ms = (tx_fast_flag ? TX_INTERVAL_FAST : TX_INTERVAL)*1000;
     //Serial.print(os_getTime());
     //Serial.print(": ");
     switch (ev)
@@ -176,6 +187,8 @@ void onEvent(ev_t ev)
             snprintf(buf, sizeof(buf), "Sended");
             u8g2->drawStr(0, 27, buf);
             u8g2->sendBuffer();
+            delay(200);
+            u8g2->sleepOn();
         }
         if (LMIC.txrxFlags & TXRX_ACK)
         {
@@ -214,7 +227,9 @@ void onEvent(ev_t ev)
             
         }
         // Schedule next transmission
-        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(tx_fast_flag ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
+        //os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(tx_fast_flag ? TX_INTERVAL_FAST : TX_INTERVAL), do_send);
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(1), do_send);
+        LowPower.deepSleep(sleep_ms);
         break;
     case EV_JOINING:
         Serial.println(F("EV_JOINING: -> Joining..."));
