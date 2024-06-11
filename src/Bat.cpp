@@ -1,15 +1,20 @@
-
 #include <Arduino.h>
 #include "Bat.h"
 #include "config.h"
 ADC_HandleTypeDef hadc;
 uint32_t Volt = 0;
 
+/**
+ * @brief Initializes the ADC hardware for battery voltage measurement.
+ *
+ * This function configures the ADC (Analog-to-Digital Converter) settings,
+ * including clock prescaler, resolution, sampling time, conversion modes,
+ * and more. It enables the GPIOC clock, initializes the ADC instance, and
+ * sets up the ADC channel. It also starts ADC calibration.
+ */
 static void MX_ADC_Init(void)
 {
-
     ADC_ChannelConfTypeDef sConfig = {0};
-
     __HAL_RCC_GPIOC_CLK_ENABLE();
     hadc.Instance = ADC1;
     hadc.Init.OversamplingMode = DISABLE;
@@ -41,18 +46,36 @@ static void MX_ADC_Init(void)
     HAL_ADCEx_Calibration_Start(&hadc, ADC_SINGLE_ENDED);
 }
 
+/**
+ * @brief Initializes the battery voltage measurement system.
+ *
+ * This function calls the ADC initialization function and starts the ADC
+ * for continuous voltage measurement.
+ */
 void bat_init(void)
 {
     MX_ADC_Init();
     HAL_ADC_Start(&hadc);
 }
 
+/**
+ * @brief Puts the battery voltage measurement system into sleep mode.
+ *
+ * This function stops the ADC and deinitializes it to reduce power consumption.
+ */
 void bat_sleep(void)
 {
     HAL_ADC_Stop(&hadc);
     HAL_ADC_DeInit(&hadc);
 }
 
+/**
+ * @brief Continuously measures and updates the battery voltage.
+ *
+ * This function accumulates ADC readings, averages them over 20 samples, and
+ * updates the global variable `Volt` with the averaged value. This process
+ * helps in smoothing out noise in the ADC readings.
+ */
 void bat_loop(void)
 {
     static uint32_t vot;
@@ -68,5 +91,4 @@ void bat_loop(void)
         vot = 0;
         i = 0;
     }
-    // Volt = HAL_ADC_GetValue(&hadc);
 }

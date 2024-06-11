@@ -8,6 +8,13 @@
 #include <Wire.h>
 #include "STM32LowPower.h"
 
+/**
+ * @brief Initializes the LoRaWAN communication interface.
+ *
+ * This function configures the SPI settings for the LoRa module by setting
+ * the appropriate pins for MISO, MOSI, and SCLK. It also sets up the pin modes
+ * and initial states for the radio antenna switch and GPS enable pin.
+ */
 void LoraWanInit(void)
 {
     SPI.setMISO(LORA_MISO);
@@ -22,6 +29,14 @@ void LoraWanInit(void)
     digitalWrite(GPS_EN, HIGH);
 }
 
+/**
+ * @brief Initializes the board and its peripherals.
+ *
+ * This function sets up power pins, serial communication, I2C interface,
+ * GPS, OLED, battery voltage measurement, and touchpad. It ensures that
+ * all necessary peripherals are configured and initialized properly.
+ * It also configures the wakeup interrupt for deep sleep mode.
+ */
 void BoardInit(void)
 {
     pinMode(PWR_1_8V_PIN, OUTPUT);
@@ -30,6 +45,7 @@ void BoardInit(void)
     digitalWrite(PWR_GPS_PIN, HIGH);
     Serial.begin(115200);
 
+    //I2C for OLED
     Wire.setSCL(IICSCL);
     Wire.setSDA(IICSDA);
     Wire.begin();
@@ -48,6 +64,14 @@ void BoardInit(void)
     LowPower.attachInterruptWakeup(TOUCH_PAD_PIN, NULL, RISING, DEEP_SLEEP_MODE);
 }
 
+/**
+ * @brief Puts the board into sleep mode to save power.
+ *
+ * This function puts various peripherals like GPS and OLED into sleep mode,
+ * stops serial communication, SPI, and I2C interfaces, and stops battery
+ * voltage measurement. Finally, it puts the MCU into deep sleep mode and
+ * reinitializes the board after waking up.
+ */
 void Board_Sleep(void) {
   gps_sleep();
   oled_sleep();
@@ -63,5 +87,4 @@ void Board_Sleep(void) {
   BoardInit();
   delay(500);
   Serial.println(F("Wakeup"));  
-  //setupLMIC();
 }

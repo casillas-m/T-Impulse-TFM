@@ -1,4 +1,4 @@
-#include <Wire.h> // Only needed for Arduino 1.6.5 and earlier
+#include <Wire.h>
 #include <SPI.h>
 #include "loramac.h"
 #include "config.h"
@@ -8,6 +8,12 @@
 #include "energy_mgmt.h"
 #include "touch.h"
 
+/**
+ * @brief Initializes the board and LoRaWAN setup.
+ *
+ * This function initializes the board peripherals, waits for a short delay, prints a
+ * message to the serial monitor, and sets up the LMIC (LoRaWAN) stack.
+ */
 void setup()
 {
     BoardInit();
@@ -16,6 +22,13 @@ void setup()
     setupLMIC();
 }
 
+/**
+ * @brief Main loop function.
+ *
+ * This function handles touch input to enter sleep mode or toggle fast transmission mode
+ * based on the duration of the touch press. It also calls the main loops for LMIC, battery,
+ * and GPS handling.
+ */
 void loop()
 {
     int touch_press_time = TouchCallback();

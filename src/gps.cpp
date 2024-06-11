@@ -5,6 +5,17 @@ TinyGPSPlus *gps = nullptr;
 HardwareSerial gpsPort(GPS_RX, GPS_TX);
 bool GPS_SLEEP_FLAG = true;
 
+/**
+ * @brief Sends a command to the GPS module and waits for an acknowledgment.
+ *
+ * This function sends a command to the GPS module through the serial port and waits
+ * for an acknowledgment response. It optionally sends an argument with the command.
+ * The function continuously checks for the acknowledgment until it receives the expected
+ * response.
+ *
+ * @param cmd The command to be sent to the GPS module.
+ * @param arg An optional argument to be sent with the command.
+ */
 void GPS_WaitAck(String cmd, String arg = "")
 {
     while (1)
@@ -35,6 +46,14 @@ void GPS_WaitAck(String cmd, String arg = "")
         }
     }
 }
+
+/**
+ * @brief Initializes the GPS module.
+ *
+ * This function sets up the GPS module by configuring the necessary pins, enabling the
+ * GPS module, resetting it, and sending initialization commands to set various
+ * parameters. It ensures the GPS module is ready for operation.
+ */
 void gps_init(void)
 {
     if (GPS_SLEEP_FLAG){
@@ -62,6 +81,12 @@ void gps_init(void)
     }
 }
 
+/**
+ * @brief Puts the GPS module into sleep mode to save power.
+ *
+ * This function stops the GPS positioning, puts the GPS module into sleep mode, and
+ * ends the serial communication to save power. It also updates the GPS sleep flag.
+ */
 void gps_sleep(void) {
     if (!GPS_SLEEP_FLAG){
         gpsPort.flush();
@@ -73,6 +98,13 @@ void gps_sleep(void) {
     }
 }
 
+/**
+ * @brief Processes GPS data in the main loop.
+ *
+ * This function reads available data from the GPS module and feeds it to the TinyGPSPlus
+ * library for parsing. It ensures that the GPS data is continuously updated when the GPS
+ * module is not in sleep mode.
+ */
 void gps_loop(void)
 {
     if (!GPS_SLEEP_FLAG)
@@ -81,9 +113,5 @@ void gps_loop(void)
         {
             gps->encode(gpsPort.read());
         }
-        /*if (gps->charsProcessed() < 10)
-        {
-            Serial.println(F("WARNING: No GPS data.  Check wiring."));
-        }*/
     }
 }
